@@ -16,7 +16,7 @@ onMounted(() => {
   const far = 1000;
 
   const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-  camera.position.set(400, 2, -150);
+  camera.position.set(0, 80, -20);
   scene.add(camera);
 
   const renderer = new THREE.WebGLRenderer();
@@ -27,13 +27,10 @@ onMounted(() => {
   document.getElementById("app").appendChild(renderer.domElement);
 
   // Initial setup of camera and controls
-  camera.position.z = 15;
-
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.25;
   controls.enableZoom = true;
-  controls.target.set(0, 5, 0);
   controls.update();
 
   const animate = () => {
@@ -42,38 +39,6 @@ onMounted(() => {
     controls.update();
     renderer.render(scene, camera);
   };
-
-  // const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
-  // const boxMaterial = new THREE.MeshBasicMaterial({
-  //   color: 0x00ff00,
-  //   wireframe: true,
-  // });
-  // const box = new THREE.Mesh(boxGeometry, boxMaterial);
-  // box.position.set(0, 0, 0);
-  // scene.add(box);
-
-  // GLTF Loader
-  // const loader = new GLTFLoader();
-  // loader.load(
-  //   //"https://s3-us-west-2.amazonaws.com/s.cdpn.io/39255/ladybug.gltf",
-  //   "http://localhost:5173/public/a.glb",
-  //   function (gltf) {
-  //     const model = gltf.scene;
-  //     model.position.set(-300, 0, 0);
-
-  //     console.log(model);
-
-  //     scene.add(model);
-  //   },
-  //   function (xhr) {
-  //     console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
-  //   },
-  //   function (error) {
-  //     console.error("An error happened", error);
-  //   }
-  // );
-
-  // animate();
 
   const onWindowResize = () => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -86,102 +51,109 @@ onMounted(() => {
   let largeCube = null;
   let largeCubeBox = null;
 
-  // Function to update vertices of an object if it intersects with the large box
-  const updateVerticesIfIntersect = (object) => {
-    if (largeCubeBox) {
+  // Nesnenin büyük kutu ile kesişip kesişmediğini kontrol eden ve kesişen yüzeyleri çıkaran fonksiyon
+  const updateGeometryIfIntersect = (object) => {
+    if (largeCubeBox && object.geometry) {
       const objectBox = new THREE.Box3().setFromObject(object);
       if (objectBox.intersectsBox(largeCubeBox)) {
         const geometry = object.geometry;
-        const vertices = geometry.attributes.position.array;
-        const newVertices = [];
-        for (let i = 0; i < vertices.length; i += 3) {
-          const vertex = new THREE.Vector3(
-            vertices[i],
-            vertices[i + 1],
-            vertices[i + 2]
-          );
-          object.localToWorld(vertex); // Convert to world coordinates
-          if (!largeCubeBox.containsPoint(vertex)) {
-            newVertices.push(vertices[i], vertices[i + 1], vertices[i + 2]);
+        const positionAttribute = geometry.getAttribute('position');
+        const indexAttribute = geometry.getIndex();
+
+        if (!indexAttribute) {
+          console.warn("Geometry doesn't have an index buffer. Skipping...");
+          return;
+        }
+
+        const positions = positionAttribute.array;
+        const indices = indexAttribute.array;
+        const newPositions = [];
+        const newIndices = [];
+
+        // Her üçgeni kontrol et
+        for (let i = 0; i < indices.length; i += 3) {
+          const a = new THREE.Vector3().fromBufferAttribute(positionAttribute, indices[i]);
+          const b = new THREE.Vector3().fromBufferAttribute(positionAttribute, indices[i + 1]);
+          const c = new THREE.Vector3().fromBufferAttribute(positionAttribute, indices[i + 2]);
+
+          object.localToWorld(a);
+          object.localToWorld(b);
+          object.localToWorld(c);
+
+          // Eğer üçgenin tüm noktaları kutu dışındaysa, üçgeni koru
+          if (!largeCubeBox.containsPoint(a) && !largeCubeBox.containsPoint(b) && !largeCubeBox.containsPoint(c)) {
+            const startIndex = newPositions.length / 3;
+            newPositions.push(
+              positions[indices[i] * 3], positions[indices[i] * 3 + 1], positions[indices[i] * 3 + 2],
+              positions[indices[i + 1] * 3], positions[indices[i + 1] * 3 + 1], positions[indices[i + 1] * 3 + 2],
+              positions[indices[i + 2] * 3], positions[indices[i + 2] * 3 + 1], positions[indices[i + 2] * 3 + 2]
+            );
+            newIndices.push(startIndex, startIndex + 1, startIndex + 2);
           }
         }
-        geometry.setAttribute(
-          "position",
-          new THREE.Float32BufferAttribute(newVertices, 3)
-        );
-        geometry.attributes.position.needsUpdate = true;
+
+        // Yeni geometriyi oluştur
+        const newGeometry = new THREE.BufferGeometry();
+        newGeometry.setAttribute('position', new THREE.Float32BufferAttribute(newPositions, 3));
+        newGeometry.setIndex(newIndices);
+        newGeometry.computeVertexNormals();
+
+        // Eski geometriyi yenisiyle değiştir
+        object.geometry.dispose();
+        object.geometry = newGeometry;
       }
     }
   };
 
-  // Function to check and update all objects in the scene
+  // Sahnedeki tüm nesneleri kontrol eden ve güncelleyen fonksiyon
   const checkAndUpdateObjects = () => {
-    scene.children.forEach((object) => {
-      if (object !== largeCube && object.geometry) {
-        updateVerticesIfIntersect(object);
+    scene.traverse((object) => {
+      if (object.isMesh && object !== largeCube) {
+        updateGeometryIfIntersect(object);
       }
     });
   };
 
-  // Load GLB file and extract the "kutu" object
+  // GLB dosyasını yükle ve "kutu" nesnesini çıkar
   const loader = new GLTFLoader();
   loader.load(
-    "http://localhost:5173/public/test.glb", // Path to your GLB file
+    "http://localhost:5173/public/untitledAnim.glb", // GLB dosyanızın yolu
     (gltf) => {
       if (gltf && gltf.scene) {
-        const objectsToCheck = [];
-
         scene.add(gltf.scene);
 
-        const boxMaterial = new THREE.MeshBasicMaterial({
-          color: 0x00ff00,
-          wireframe: true,
-        });
-
-        scene.children[0].children.forEach(
-          (item) => (item.material = boxMaterial)
-        );
-
-        gltf.scene.children.forEach((child) => {
+        gltf.scene.traverse((child) => {
           if (child.isMesh) {
-            if (child.userData.name === "kutu") {
+            child.material.wireframe = true;
+
+            if (child.name === "kutu") {
               largeCube = child;
-              child.material.wireframe = true; // Set the material to wireframe mode
+              const boxMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00aa00,
+                wireframe: true,
+                opacity: 0.5,
+                transparent: true
+              });
+              largeCube.material = boxMaterial;
               largeCubeBox = new THREE.Box3().setFromObject(largeCube);
-              scene.add(largeCube);
-            } else {
-              objectsToCheck.push(child);
             }
           }
         });
 
-        // Add objects to the scene and check for intersections
-        objectsToCheck.forEach((object) => scene.add(object));
+        // Nesneleri kontrol et ve güncelle
         checkAndUpdateObjects();
-
-        console.log(largeCube.visible=false)
       } else {
-        console.error("GLTF file loaded but scene is undefined");
+        console.error("GLTF dosyası yüklendi ancak sahne tanımsız");
       }
     },
     (xhr) => {
-      console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+      console.log((xhr.loaded / xhr.total) * 100 + "% yüklendi");
     },
     (error) => {
-      console.error("An error happened", error);
+      console.error("Bir hata oluştu", error);
     }
   );
 
   animate();
 });
 </script>
-
-<style>
-#app {
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
-  margin: 0;
-  padding: 0;
-}
-</style>
