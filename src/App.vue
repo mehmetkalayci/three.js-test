@@ -120,6 +120,7 @@ onMounted(() => {
     "http://localhost:5173/public/untitledAnim.glb", // GLB dosyanızın yolu
     (gltf) => {
       if (gltf && gltf.scene) {
+        console.log(gltf)
         scene.add(gltf.scene);
 
         gltf.scene.traverse((child) => {
