@@ -10,13 +10,13 @@ onMounted(() => {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color("white");
 
-  const fov = 45;
+  const fov = 25;
   const aspect = window.innerWidth / window.innerHeight;
   const near = 0.1;
   const far = 1000;
 
   const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-  camera.position.set(0, 80, -20);
+  camera.position.set(90, 90, 0);
   scene.add(camera);
 
   const renderer = new THREE.WebGLRenderer();
@@ -101,32 +101,20 @@ onMounted(() => {
     });
   };
 
-  const setFrame = (frameIndex) => {
-    if (!mixer || !animationClip) {
-      console.warn("Animation or mixer not ready");
-      return;
-    }
 
-    const duration = animationClip.duration;
-    const time = (frameIndex / 60) * duration; // Assuming 60 fps
-
-    mixer.setTime(time);
-    checkAndUpdateObjects();
-  };
-
-  const animate = () => {
-    requestAnimationFrame(animate);
+  function animate() {
+    var delta = clock.getDelta();
 
     if (mixer) {
-      mixer.update(0.016); // Update mixer (assuming 60fps)
+      mixer.update(delta);
     }
 
-    checkAndUpdateObjects(); // Continuously check and update objects
-    controls.update();
     renderer.render(scene, camera);
-  };
 
+    requestAnimationFrame(animate);
+  }
 
+  const clock = new THREE.Clock();
   const loader = new GLTFLoader();
   loader.load(
     // Animasyon hazırlamak için https://www.youtube.com/watch?v=sb_FxJX4Jns
@@ -135,18 +123,26 @@ onMounted(() => {
       if (gltf && gltf.scene) {
         const model = gltf.scene;
 
+
         if (gltf.animations && gltf.animations.length > 0) {
+          // AnimationMixer ve AnimationClip'i oluşturun
           mixer = new THREE.AnimationMixer(model);
-          animationClip = gltf.animations[0];
-          mixer.clipAction(animationClip).play();
+          const animationClip = gltf.animations[1];
+
+
+          // Animasyon klibi ile bir clipAction oluşturun
+          const clipAction = mixer.clipAction(animationClip);
+
+          clipAction.play();
+
+          mixer.setTime(25.5);
+
         } else {
           console.warn("No animations found in the GLTF file");
         }
-
-
         scene.add(model);
 
-        gltf.scene.traverse((child) => {
+        scene.traverse((child) => {
           if (child.isMesh) {
             child.material.wireframe = true;
 
@@ -164,13 +160,8 @@ onMounted(() => {
           }
         });
 
-        // checkAndUpdateObjects();
+        checkAndUpdateObjects();
 
-        setTimeout(() => {
-          setFrame(240);
-        }, 100);
-
-        animate();
 
       } else {
         console.error("GLTF dosyası yüklendi ancak sahne tanımsız");
