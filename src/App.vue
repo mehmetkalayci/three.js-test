@@ -129,12 +129,9 @@ onMounted(() => {
           mixer = new THREE.AnimationMixer(model);
           const animationClip = gltf.animations[1];
 
-
           // Animasyon klibi ile bir clipAction oluşturun
           const clipAction = mixer.clipAction(animationClip);
-
           clipAction.play();
-
           mixer.setTime(25.5);
 
         } else {
