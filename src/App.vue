@@ -103,14 +103,7 @@ onMounted(() => {
 
 
   function animate() {
-    var delta = clock.getDelta();
-
-    if (mixer) {
-      mixer.update(delta);
-    }
-
     renderer.render(scene, camera);
-
     requestAnimationFrame(animate);
   }
 
@@ -131,8 +124,10 @@ onMounted(() => {
 
           // Animasyon klibi ile bir clipAction oluşturun
           const action = mixer.clipAction(animationClip);
+          
+          // İstenilen zamana ayarla
           action.play();
-          mixer.setTime(25.5);
+          mixer.setTime(4);
 
         } else {
           console.warn("No animations found in the GLTF file");
