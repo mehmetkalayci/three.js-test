@@ -107,12 +107,17 @@ onMounted(() => {
     requestAnimationFrame(animate);
   }
 
-  const clock = new THREE.Clock();
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  const DEFAULT_FRAME_RATE = 24; // Blender default frame rate değeri
+
   const loader = new GLTFLoader();
   loader.load(
     // Animasyon hazırlamak için https://www.youtube.com/watch?v=sb_FxJX4Jns
     "http://localhost:5173/untitledAnim.glb",
-    (gltf) => {
+    async (gltf) => {
       if (gltf && gltf.scene) {
         const model = gltf.scene;
 
@@ -124,10 +129,37 @@ onMounted(() => {
 
           // Animasyon klibi ile bir clipAction oluşturun
           const action = mixer.clipAction(animationClip);
-          
+
           // İstenilen zamana ayarla
           action.play();
-          mixer.setTime(4);
+          const frameNumber = 83;
+          // gidilecek frame göre zamanı hesapla
+          const time = frameNumber / DEFAULT_FRAME_RATE;
+          mixer.setTime(time);
+
+
+
+
+                    
+          // const totalFrames = 361;
+          // for (let frameNumber = 0; frameNumber < totalFrames; frameNumber++) {
+          //   const time = frameNumber / DEFAULT_FRAME_RATE;
+          //   action.play();
+
+          //   mixer.setTime(time);
+
+
+          //   // Wait for 1000ms
+          //   await sleep(1000);
+
+          //   // Log frame number or perform other operations
+          //   console.log(frameNumber);
+            
+          // }
+
+
+
+
 
         } else {
           console.warn("No animations found in the GLTF file");
