@@ -127,11 +127,11 @@ onMounted(() => {
         if (gltf.animations && gltf.animations.length > 0) {
           // AnimationMixer ve AnimationClip'i oluşturun
           mixer = new THREE.AnimationMixer(model);
-          const animationClip = gltf.animations[1];
+          const animationClip = THREE.AnimationClip.findByName(gltf.animations, 'kutuAction.001');
 
           // Animasyon klibi ile bir clipAction oluşturun
-          const clipAction = mixer.clipAction(animationClip);
-          clipAction.play();
+          const action = mixer.clipAction(animationClip);
+          action.play();
           mixer.setTime(25.5);
 
         } else {
